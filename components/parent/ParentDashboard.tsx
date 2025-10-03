@@ -63,17 +63,20 @@ const CoursesManager: React.FC<{ courses: Course[], addCourse: (name: string) =>
                 </button>
             </form>
             <div className="space-y-3 max-h-64 overflow-y-auto">
-                {courses.map(course => (
-                    <div key={course.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                            <course.icon className="w-6 h-6 text-primary-600"/>
-                            <span className="font-semibold">{course.name}</span>
+                {courses.map(course => {
+                    const Icon = course.icon || BookOpen;
+                    return (
+                        <div key={course.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                                <Icon className="w-6 h-6 text-primary-600"/>
+                                <span className="font-semibold">{course.name}</span>
+                            </div>
+                            <button onClick={() => deleteCourse(course.id)} className="text-red-500 hover:text-red-700" title="Dersi Sil" aria-label="Dersi Sil">
+                                <Trash2 className="w-5 h-5" />
+                            </button>
                         </div>
-                        <button onClick={() => deleteCourse(course.id)} className="text-red-500 hover:text-red-700" title="Dersi Sil" aria-label="Dersi Sil">
-                            <Trash2 className="w-5 h-5" />
-                        </button>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     )
