@@ -7,12 +7,11 @@ import { getMessaging, isSupported } from 'firebase/messaging';
 // Firebase config object with your actual project credentials
 const firebaseConfig = {
   apiKey: "AIzaSyCdp11ugWRUUsxEC7tDbD4ojVP1ZFlvJ_8",
-  authDomain: "ders-takip-projesi.firebaseapp.com",
-  projectId: "ders-takip-projesi", 
-  storageBucket: "ders-takip-projesi.appspot.com",
-  messagingSenderId: "123456789012", // You may need to update this
-  appId: "1:123456789012:web:abcdef123456789012345678", // You may need to update this
-  measurementId: "G-XXXXXXXXXX" // Optional
+  authDomain: "ders-tak.firebaseapp.com",
+  projectId: "ders-tak",
+  storageBucket: "ders-tak.appspot.com",
+  messagingSenderId: "1017687251305",
+  appId: "1:1017687251305:web:abcdef123456789012345678"
 };
 
 // Initialize Firebase app
