@@ -81,6 +81,14 @@ export interface Badge {
     icon: React.ComponentType<{ className?: string }>;
 }
 
+// Storage info interface
+export interface StorageInfo {
+  usage: { used: string; percentage: string };
+  archivedCount: number;
+  showWarning: boolean;
+  onArchive: () => void;
+}
+
 // Props for ParentDashboard
 export interface ParentDashboardProps {
   courses: Course[];
@@ -95,6 +103,9 @@ export interface ParentDashboardProps {
   addReward: (reward: Omit<Reward, 'id'>) => void;
   deleteReward: (rewardId: string) => void;
   generateReport: (period: 'Haftalık' | 'Aylık') => Promise<ReportData | null>;
+  onExportData?: () => void;
+  onImportData?: () => void;
+  storageInfo?: StorageInfo;
 }
 
 export interface TaskCompletionData {

@@ -1,13 +1,29 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2, TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer, Download, ArrowUpDown, Trophy, Sparkles, BookMarked } from '../icons';
 import { DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps, Course, Reward } from '../../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+// Tree-shaking için ayrı ayrı import edildi
+import { BarChart } from 'recharts/es6/chart/BarChart';
+import { Bar } from 'recharts/es6/cartesian/Bar';
+import { XAxis } from 'recharts/es6/cartesian/XAxis';
+import { YAxis } from 'recharts/es6/cartesian/YAxis';
+import { CartesianGrid } from 'recharts/es6/cartesian/CartesianGrid';
+import { Tooltip } from 'recharts/es6/component/Tooltip';
+import { Legend } from 'recharts/es6/component/Legend';
+import { ResponsiveContainer } from 'recharts/es6/component/ResponsiveContainer';
+import { LineChart } from 'recharts/es6/chart/LineChart';
+import { Line } from 'recharts/es6/cartesian/Line';
+import { AreaChart } from 'recharts/es6/chart/AreaChart';
+import { Area } from 'recharts/es6/cartesian/Area';
 import { GoogleGenAI, Type } from "@google/genai";
 import EmptyState from '../shared/EmptyState';
-import TaskTypeAnalysis from './TaskTypeAnalysis';
-import BestPeriodAnalysis from './BestPeriodAnalysis';
-import CompletionSpeedAnalysis from './CompletionSpeedAnalysis';
-import CourseTimeDistribution from './CourseTimeDistribution';
+// Statik importlar kaldırıldı - Sadece lazy loading
+
+// ⚡ Lazy Loading Komponenleri - Bundle Size Optimizasyonu
+const LazyReportsCourseTrends = React.lazy(() => import('./ReportsCourseTrends'));
+const TaskTypeAnalysis = React.lazy(() => import('./TaskTypeAnalysis'));
+const BestPeriodAnalysis = React.lazy(() => import('./BestPeriodAnalysis'));
+const CompletionSpeedAnalysis = React.lazy(() => import('./CompletionSpeedAnalysis'));
+const CourseTimeDistribution = React.lazy(() => import('./CourseTimeDistribution'));
 
 
 const Modal: React.FC<{ show: boolean, onClose: () => void, title: string, children: React.ReactNode }> = ({ show, onClose, title, children }) => {
@@ -803,10 +819,7 @@ ${report.aiSuggestion}
                     <React.Suspense fallback={<div>Grafikler yükleniyor...</div>}>
                         {/** Dinamik import ile yükle (isteğe bağlı), burada doğrudan import edilebilir */}
                         {/* <ReportsCourseTrends tasks={tasks} courses={courses} period={period} /> */}
-                                                {(() => {
-                                                    const LazyReportsCourseTrends = React.lazy(() => import('./ReportsCourseTrends'));
-                                                    return <LazyReportsCourseTrends tasks={tasks} courses={courses} period={period} />;
-                                                })()}
+                                                <LazyReportsCourseTrends tasks={tasks} courses={courses} period={period} />
                     </React.Suspense>
                 </div>
             )}
@@ -1240,6 +1253,18 @@ const ParentDashboard: React.FC<ParentDashboardProps> = (props) => {
     const [activeView, setActiveView] = useStickyState<ParentView>('dashboard', 'parentActiveView');
   
   type ParentView = 'dashboard' | 'courses' | 'tasks' | 'analytics' | 'reports' | 'rewards';
+  
+    // ⚡ Performans optimizasyonu - Heavy calculations
+    const performanceMetrics = useMemo(() => {
+        const completedTasks = props.tasks.filter(t => t.status === 'tamamlandı');
+        const totalPoints = completedTasks.reduce((sum, task) => sum + (task.points || 0), 0);
+        const weeklyCompleted = completedTasks.filter(t => 
+            t.completionDate && 
+            new Date(t.completionDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        ).length;
+        
+        return { completedTasks, totalPoints, weeklyCompleted };
+    }, [props.tasks]);
 
         const NavLink: React.FC<{ view: ParentView; icon: React.ReactNode; label: string }> = ({ view, icon, label }) => (
             <button
@@ -1258,23 +1283,32 @@ const ParentDashboard: React.FC<ParentDashboardProps> = (props) => {
   const renderContent = () => {
             switch(activeView) {
                     case 'dashboard':
-                            const totalPoints = props.tasks
-                                .filter(t => t.status === 'tamamlandı')
-                                .reduce((sum, t) => sum + (t.pointsAwarded || 0), 0);
+                            // ⚡ Optimize edilmiş metrikler kullanılıyor
                             return (
                                     <div className="space-y-8">
                                             <DailyBriefing ai={props.ai} tasks={props.tasks} />
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                                 <StatCard title="Aktif Ders Sayısı" value={props.courses.length.toString()} icon={<BookOpen className="w-6 h-6 text-primary-600"/>} />
                                                 <StatCard title="Bekleyen Görevler" value={props.tasks.filter(t=> t.status === 'bekliyor').length.toString()} icon={<ClipboardList className="w-6 h-6 text-primary-600"/>} />
-                                                <StatCard title="Tamamlanan Görevler (Haftalık)" value={props.tasks.filter(t=> t.status === 'tamamlandı' && t.completionDate && new Date(t.completionDate) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length.toString()} icon={<CheckCircle className="w-6 h-6 text-primary-600"/>} />
-                                                <StatCard title="Toplam Başarı Puanı" value={totalPoints.toString()} icon={<Trophy className="w-6 h-6 text-amber-500"/>} />
+                                                <StatCard title="Tamamlanan Görevler (Haftalık)" value={performanceMetrics.weeklyCompleted.toString()} icon={<CheckCircle className="w-6 h-6 text-primary-600"/>} />
+                                                <StatCard title="Toplam Başarı Puanı" value={performanceMetrics.totalPoints.toString()} icon={<Trophy className="w-6 h-6 text-amber-500"/>} />
                                         </div>
-                                            {/* Görev Türü Analizi Kart+Grafik */}
-                                            <TaskTypeAnalysis tasks={props.tasks} />
-                                            <BestPeriodAnalysis tasks={props.tasks} />
-                                            <CompletionSpeedAnalysis tasks={props.tasks} />
-                                            <CourseTimeDistribution tasks={props.tasks} courses={props.courses} />
+                                            {/* Görev Türü Analizi Kart+Grafik - Optimize Edilmiş */}
+                                            <React.Suspense fallback={
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                    {[1, 2, 3, 4].map(i => (
+                                                        <div key={i} className="bg-gray-100 animate-pulse rounded-lg p-4 h-64">
+                                                            <div className="bg-gray-300 h-4 rounded mb-4 w-1/2"></div>
+                                                            <div className="bg-gray-200 h-48 rounded"></div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            }>
+                                                <TaskTypeAnalysis tasks={props.tasks} />
+                                                <BestPeriodAnalysis tasks={props.tasks} />
+                                                <CompletionSpeedAnalysis tasks={props.tasks} />
+                                                <CourseTimeDistribution tasks={props.tasks} courses={props.courses} />
+                                            </React.Suspense>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                              <TaskManager {...props} />
                                              <div className="space-y-8">
@@ -1302,6 +1336,52 @@ const ParentDashboard: React.FC<ParentDashboardProps> = (props) => {
         <NavLink view="analytics" icon={<BarChartIcon className="w-5 h-5"/>} label="Performans Analizi" />
         <NavLink view="reports" icon={<FileText className="w-5 h-5"/>} label="Raporlar" />
         <NavLink view="rewards" icon={<Gift className="w-5 h-5"/>} label="Ödüller" />
+        
+        {/* Storage Information */}
+        {props.storageInfo && (
+          <div className="mt-4 p-3 bg-slate-50 rounded-lg border">
+            <div className="text-xs text-slate-600 space-y-2">
+              <div className="flex items-center justify-between">
+                <span>📁 Depolama:</span>
+                <span className={`font-semibold ${parseFloat(props.storageInfo.usage.percentage) > 70 ? 'text-amber-600' : 'text-slate-700'}`}>
+                  %{props.storageInfo.usage.percentage}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 rounded-full h-1.5">
+                <div 
+                  className={`h-1.5 rounded-full transition-all ${
+                    parseFloat(props.storageInfo.usage.percentage) > 70 ? 'bg-amber-500' : 'bg-primary-500'
+                  } ${
+                    parseFloat(props.storageInfo.usage.percentage) <= 25 ? 'w-1/4' :
+                    parseFloat(props.storageInfo.usage.percentage) <= 50 ? 'w-1/2' :
+                    parseFloat(props.storageInfo.usage.percentage) <= 75 ? 'w-3/4' :
+                    'w-full'
+                  }`}
+                />
+              </div>
+              <div className="text-xs text-slate-500">
+                {props.storageInfo.usage.used}MB kullanılıyor
+              </div>
+              {props.storageInfo.archivedCount > 0 && (
+                <div className="text-xs text-blue-600">
+                  📚 {props.storageInfo.archivedCount} arşiv görev
+                </div>
+              )}
+              {(props.storageInfo.showWarning || parseFloat(props.storageInfo.usage.percentage) > 50) && (
+                <button
+                  onClick={props.storageInfo.onArchive}
+                  className={`w-full mt-2 px-2 py-1 text-xs rounded-lg transition ${
+                    props.storageInfo.showWarning 
+                      ? 'bg-amber-600 text-white hover:bg-amber-700 animate-pulse' 
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                >
+                  {props.storageInfo.showWarning ? '⚡ Arşivle!' : '📚 Arşiv Yap'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </aside>
       <div className="flex-1 p-8 bg-slate-50">
         {renderContent()}

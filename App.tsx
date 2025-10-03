@@ -3,7 +3,7 @@ import ParentDashboard from './components/parent/ParentDashboard';
 import ChildDashboard from './components/child/ChildDashboard';
 import ParentLockScreen from './components/parent/ParentLockScreen';
 import { UserType, Course, Task, PerformanceData, TaskCompletionData, Reward, Badge, ReportData } from './types';
-import { GraduationCap, User, Users, Trash2, CheckCircle, XCircle, BadgeCheck } from './components/icons';
+import { GraduationCap, User, Users, Trash2, CheckCircle, XCircle, BadgeCheck, BookMarked, Download, FileText, Home } from './components/icons';
 import { ALL_ICONS } from './constants';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -28,6 +28,61 @@ interface ToastMessage {
   type: 'success' | 'error';
 }
 
+// Storage utilities for data archiving and monitoring
+const getStorageUsage = () => {
+  let total = 0;
+  for (let key in localStorage) {
+    if (localStorage.hasOwnProperty(key)) {
+      total += localStorage[key].length;
+    }
+  }
+  return {
+    used: (total / 1024 / 1024).toFixed(2),
+    percentage: ((total / (5 * 1024 * 1024)) * 100).toFixed(1)
+  };
+};
+
+const archiveOldTasks = (tasks: Task[], setTasks: React.Dispatch<React.SetStateAction<Task[]>>) => {
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const activeTasks = tasks.filter(t => 
+    !t.completionDate || new Date(t.completionDate) > sixMonthsAgo
+  );
+  
+  const archivedTasks = tasks.filter(t => 
+    t.completionDate && new Date(t.completionDate) <= sixMonthsAgo
+  );
+  
+  if (archivedTasks.length > 0) {
+    try {
+      // Mevcut arşiv verilerini al ve birleştir
+      const existingArchive = localStorage.getItem('archivedTasks');
+      const existingArchivedTasks = existingArchive ? JSON.parse(existingArchive) : [];
+      const allArchivedTasks = [...existingArchivedTasks, ...archivedTasks];
+      
+      localStorage.setItem('archivedTasks', JSON.stringify(allArchivedTasks));
+      setTasks(activeTasks);
+      
+      return archivedTasks.length;
+    } catch (error) {
+      console.error('Arşivleme hatası:', error);
+      return 0;
+    }
+  }
+  
+  return 0;
+};
+
+const getArchivedTasksCount = () => {
+  try {
+    const archivedTasks = localStorage.getItem('archivedTasks');
+    return archivedTasks ? JSON.parse(archivedTasks).length : 0;
+  } catch {
+    return 0;
+  }
+};
+
 // useStickyState hook for localStorage persistence
 function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState<T>(() => {
@@ -45,6 +100,10 @@ function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<Rea
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
       console.error(`Error setting localStorage key "${key}":`, error);
+      // Storage dolu ise otomatik arşivleme tetikle
+      if (error.name === 'QuotaExceededError') {
+        console.log('localStorage dolu, arşivleme önerisi gösteriliyor');
+      }
     }
   }, [key, value]);
 
@@ -56,6 +115,10 @@ const App: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  
+  // Archive Modal State
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [storageWarning, setStorageWarning] = useState<boolean>(false);
   // Export all app data as JSON
   const handleExportData = () => {
     const data = {
@@ -105,6 +168,20 @@ const App: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // Archive handler
+  const handleArchiveOldTasks = () => {
+    const archivedCount = archiveOldTasks(tasks, setTasks);
+    
+    if (archivedCount > 0) {
+      addToast(`${archivedCount} eski görev arşivlendi. Depolama alanı temizlendi.`, 'success');
+      setStorageWarning(false);
+    } else {
+      addToast('Arşivlenecek eski görev bulunamadı.', 'error');
+    }
+    
+    setShowArchiveModal(false);
+  };
+
   // Import butonuna tıklanınca dosya seçtir
   const triggerImportFile = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -121,11 +198,28 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  
+  // Storage monitoring - Her 10 task'ta bir kontrol et
+  useEffect(() => {
+    const taskCount = tasks.filter(t => t.status === 'tamamlandı').length;
+    
+    if (taskCount > 0 && taskCount % 50 === 0) {
+      const storage = getStorageUsage();
+      
+      // %70 dolduğunda uyarı göster
+      if (parseFloat(storage.percentage) > 70) {
+        setStorageWarning(true);
+      }
+    }
+  }, [tasks]);
  
   const prevTasksRef = useRef<Task[]>(tasks);
 
-
-  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY });
+  // ⚡ AI Service Singleton Pattern - Performans optimizasyonu
+  const ai = useRef<GoogleGenAI | null>(null);
+  if (!ai.current) {
+    ai.current = new GoogleGenAI({ apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY });
+  }
  
   const addToast = (message: string, type: ToastMessage['type']) => {
     const id = Date.now();
@@ -601,7 +695,7 @@ const App: React.FC = () => {
                     tasks={tasks}
                     performanceData={performanceData}
                     rewards={rewards}
-                    ai={ai}
+                    ai={ai.current!}
                     addCourse={addCourse}
                     deleteCourse={handleDeleteCourseRequest}
                     addTask={addTask}
@@ -611,6 +705,12 @@ const App: React.FC = () => {
                     generateReport={generateReport}
                     onExportData={handleExportData}
                     onImportData={() => setShowImportModal(true)}
+                    storageInfo={{
+                      usage: getStorageUsage(),
+                      archivedCount: getArchivedTasksCount(),
+                      showWarning: storageWarning,
+                      onArchive: () => setShowArchiveModal(true)
+                    }}
                   />
                   {/* Import Modal */}
                   <Modal show={showImportModal} onClose={() => setShowImportModal(false)} title="Veri Yedeğini Geri Yükle">
@@ -635,6 +735,44 @@ const App: React.FC = () => {
                         Yedek Dosyası Seç
                       </button>
                       {importError && <p className="text-red-600 font-semibold">{importError}</p>}
+                    </div>
+                  </Modal>
+                  
+                  {/* Archive Modal */}
+                  <Modal show={showArchiveModal} onClose={() => setShowArchiveModal(false)} title="Eski Görevleri Arşivle">
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-blue-800 mb-2">📊 Depolama Durumu</h4>
+                        <div className="text-sm text-blue-700 space-y-1">
+                          <p>• Toplam kullanım: {getStorageUsage().used} MB (%{getStorageUsage().percentage})</p>
+                          <p>• Aktif görevler: {tasks.length} görev</p>
+                          <p>• Arşiv görevler: {getArchivedTasksCount()} görev</p>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-amber-800 mb-2">⚡ Arşivleme İşlemi</h4>
+                        <div className="text-sm text-amber-700 space-y-1">
+                          <p>• 6 aydan eski tamamlanmış görevler arşivlenecek</p>
+                          <p>• Performans arttırılacak ve alan temizlenecek</p>
+                          <p>• Arşiv veriler güvende kalacak</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={handleArchiveOldTasks}
+                          className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition"
+                        >
+                          📚 Arşivle
+                        </button>
+                        <button
+                          onClick={() => setShowArchiveModal(false)}
+                          className="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition"
+                        >
+                          İptal
+                        </button>
+                      </div>
                     </div>
                   </Modal>
                 </>
