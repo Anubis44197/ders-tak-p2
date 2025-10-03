@@ -1,0 +1,272 @@
+/* Responsive Design for Mobile & Tablet */
+
+/* Base Mobile Styles */
+@media (max-width: 768px) {
+  /* Global Container Adjustments */
+  .container {
+    padding: 0 1rem !important;
+  }
+
+  /* Header Responsiveness */
+  header .flex {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  header h1 {
+    font-size: 1.5rem !important;
+  }
+
+  /* Parent Dashboard Layout */
+  .flex:has(aside) {
+    flex-direction: column !important;
+  }
+
+  /* Sidebar to Top Navigation */
+  aside {
+    width: 100% !important;
+    position: static !important;
+    height: auto !important;
+    display: flex !important;
+    overflow-x: auto !important;
+    padding: 1rem !important;
+    gap: 0.5rem !important;
+  }
+
+  aside button {
+    min-width: 120px !important;
+    padding: 0.75rem 1rem !important;
+    border-radius: 1rem !important;
+    white-space: nowrap !important;
+  }
+
+  aside button span {
+    display: none !important;
+  }
+
+  aside button:first-child span {
+    display: inline !important;
+  }
+
+  /* Main Content Adjustments */
+  .flex-1 {
+    padding: 1rem !important;
+  }
+
+  /* Cards and Modals */
+  .bg-white.rounded-xl {
+    border-radius: 0.75rem !important;
+    margin: 0.5rem 0 !important;
+  }
+
+  /* Form Elements */
+  input, select, textarea {
+    padding: 0.875rem !important;
+    font-size: 1rem !important;
+  }
+
+  /* Button Sizes */
+  button {
+    padding: 0.875rem 1.5rem !important;
+    font-size: 1rem !important;
+    min-height: 44px !important; /* Touch target */
+  }
+
+  /* Modal Responsiveness */
+  .fixed.inset-0 > div {
+    width: 95% !important;
+    max-width: none !important;
+    margin: 1rem !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Task Cards */
+  .space-y-4 > div {
+    padding: 1rem !important;
+  }
+
+  /* Charts Container */
+  .recharts-wrapper {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+
+  /* Grid Layouts */
+  .grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  /* Text Sizes */
+  .text-2xl {
+    font-size: 1.5rem !important;
+  }
+
+  .text-xl {
+    font-size: 1.25rem !important;
+  }
+
+  /* Storage Widget */
+  .w-64 > div {
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* User Type Toggle */
+  .relative.inline-flex {
+    width: 100% !important;
+  }
+
+  .relative.inline-flex button {
+    flex: 1 !important;
+    min-width: auto !important;
+  }
+}
+
+/* Tablet Specific (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  aside {
+    width: 200px !important;
+  }
+
+  .flex-1 {
+    padding: 1.5rem !important;
+  }
+
+  /* Task Cards in 2 columns on tablet */
+  .space-y-4 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .space-y-4 > * {
+    margin-top: 0 !important;
+  }
+}
+
+/* Large Mobile (480px - 767px) */
+@media (min-width: 480px) and (max-width: 767px) {
+  .container {
+    padding: 0 1.5rem !important;
+  }
+
+  header h1 {
+    font-size: 1.75rem !important;
+  }
+}
+
+/* Small Mobile (< 480px) */
+@media (max-width: 479px) {
+  .container {
+    padding: 0 0.75rem !important;
+  }
+
+  header {
+    padding: 0.5rem 0 !important;
+  }
+
+  .fixed.inset-0 > div {
+    width: 98% !important;
+    margin: 0.25rem !important;
+    border-radius: 0.5rem !important;
+  }
+
+  /* Compact sidebar navigation */
+  aside {
+    padding: 0.5rem !important;
+  }
+
+  aside button {
+    min-width: 100px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  /* Smaller buttons for touch */
+  button {
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (pointer: coarse) {
+  /* Larger touch targets */
+  button, input, select {
+    min-height: 44px !important;
+  }
+
+  /* Better spacing for touch */
+  .space-x-2 {
+    gap: 1rem !important;
+  }
+
+  .space-y-2 {
+    gap: 1rem !important;
+  }
+}
+
+/* Landscape Mobile */
+@media (max-width: 1024px) and (orientation: landscape) {
+  header .flex {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+  }
+
+  aside {
+    width: 180px !important;
+    height: calc(100vh - 80px) !important;
+    position: sticky !important;
+    top: 80px !important;
+  }
+}
+
+/* Dark Mode Support (if needed) */
+@media (prefers-color-scheme: dark) {
+  .bg-white {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+  }
+  
+  .text-slate-800 {
+    color: #f1f5f9 !important;
+  }
+  
+  .border-slate-300 {
+    border-color: #475569 !important;
+  }
+}
+
+/* High DPI Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Crisp icons and images */
+  .w-5.h-5, .w-6.h-6, .w-8.h-8 {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .fixed, .sticky {
+    position: static !important;
+  }
+  
+  aside {
+    display: none !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}

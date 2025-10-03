@@ -13,21 +13,22 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "recharts": "^3.2.1",
+    "@google/genai": "^1.21.0",
+    "firebase": "^12.3.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "@google/genai": "^1.21.0"
+    "recharts": "^3.2.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "@vitest/ui": "^2.1.8",
+    "jsdom": "^25.0.1",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "@testing-library/react": "^16.0.1",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/user-event": "^14.5.2",
-    "vitest": "^2.1.8",
-    "jsdom": "^25.0.1",
-    "@vitest/ui": "^2.1.8"
+    "vitest": "^2.1.8"
   }
 }

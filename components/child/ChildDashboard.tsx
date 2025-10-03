@@ -58,7 +58,7 @@ const TaskCard: React.FC<{ task: Task, courses: ChildDashboardProps['courses'], 
     const Icon = isSelfAssigned ? Zap : isReadingTask ? BookMarked : course?.icon || BookOpen;
 
     return (
-        <div className={`bg-white p-5 rounded-xl shadow-md border-l-4 ${borderColor} ${task.status === 'tamamlandı' ? 'bg-slate-50' : 'hover:shadow-lg transition-shadow'} max-w-md w-full mx-auto`}>
+        <div className={`bg-white p-4 rounded-xl shadow-md border-l-4 ${borderColor} ${task.status === 'tamamlandı' ? 'bg-slate-50' : 'hover:shadow-lg transition-shadow'} max-w-md w-full mx-auto max-h-40 overflow-hidden hover:max-h-none transition-all duration-300`}>
             <div className="flex justify-between items-start">
                 <div>
                     <div className="flex items-center space-x-2 mb-1">

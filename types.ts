@@ -17,7 +17,6 @@ export interface Task {
   courseId: string;
   title: string;
   description?: string;
-  dueDate: string;
   status: 'bekliyor' | 'tamamlandı';
   taskType: 'soru çözme' | 'ders çalışma' | 'kitap okuma';
   plannedDuration: number; // in minutes
@@ -89,6 +88,12 @@ export interface StorageInfo {
   onArchive: () => void;
 }
 
+// API Key info interface
+export interface ApiKeyInfo {
+  hasValidKey: boolean;
+  onChangeKey: () => void;
+}
+
 // Props for ParentDashboard
 export interface ParentDashboardProps {
   courses: Course[];
@@ -106,6 +111,7 @@ export interface ParentDashboardProps {
   onExportData?: () => void;
   onImportData?: () => void;
   storageInfo?: StorageInfo;
+  apiKeyInfo?: ApiKeyInfo;
 }
 
 export interface TaskCompletionData {

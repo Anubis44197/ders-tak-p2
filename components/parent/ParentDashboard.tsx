@@ -168,8 +168,6 @@ const TaskManager: React.FC<{ tasks: Task[], courses: Course[], addTask: (task: 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <label htmlFor="task-title" className="block text-sm font-medium text-slate-700 mb-1">Görev Başlığı</label>
                     <input id="task-title" type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Görev Başlığı" required className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"/>
-                    <label htmlFor="task-due-date" className="block text-sm font-medium text-slate-700 mb-1">Son Teslim Tarihi</label>
-                    <input id="task-due-date" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} required className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"/>
                     <label htmlFor="task-course" className="block text-sm font-medium text-slate-700 mb-1">Ders Seç</label>
                     <select id="task-course" title="Ders Seç" value={courseId} onChange={e => setCourseId(e.target.value)} required className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500">
                         {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -232,7 +230,7 @@ const TaskManager: React.FC<{ tasks: Task[], courses: Course[], addTask: (task: 
 
             <div className="space-y-3 max-h-96 overflow-y-auto">
                  {filteredAndSortedTasks.length > 0 ? filteredAndSortedTasks.map(task => (
-                    <div key={task.id} className="p-4 bg-slate-50 rounded-lg">
+                    <div key={task.id} className="p-4 bg-slate-50 rounded-lg max-h-32 overflow-hidden hover:max-h-none hover:overflow-visible transition-all duration-300 cursor-pointer relative group">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="font-bold">{task.title}</p>
@@ -265,7 +263,7 @@ const TaskManager: React.FC<{ tasks: Task[], courses: Course[], addTask: (task: 
                                     {task.taskType === 'soru çözme' && <span>Soru: <span className="font-semibold">{task.questionCount}</span></span>}
                                 </div>
                             )}
-                             <span>Tarih: <span className="font-semibold">{task.dueDate}</span></span>
+
                         </div>
                         {task.status === 'tamamlandı' && task.startTimestamp && task.completionTimestamp && (
                             <div className="mt-1 text-xs text-slate-500 flex space-x-4">
@@ -885,7 +883,7 @@ const CoursesDashboard: React.FC<ParentDashboardProps> = ({ courses, tasks, addC
         <div className="p-3 bg-slate-50 rounded-lg">
             <p className="font-bold">{task.title}</p>
             <div className="text-xs text-slate-500 mt-1 flex justify-between">
-                <span>Son Teslim: {task.dueDate}</span>
+
                  {task.status === 'tamamlandı' && (
                     <div className="flex space-x-2 font-semibold">
                         <span className="text-green-600">D: {task.correctCount || 0}</span>
@@ -1167,7 +1165,8 @@ const DailyBriefing: React.FC<{ai: GoogleGenAI, tasks: Task[]}> = ({ ai, tasks }
             const today = new Date().toISOString().split('T')[0];
             const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
-            const todaysTasks = tasks.filter(t => t.dueDate === today && t.status === 'bekliyor');
+            const pendingTasks = tasks.filter(t => t.status === 'bekliyor');
+            const todaysTasks = pendingTasks.slice(0, 5); // İlk 5 bekleyen görev
             const yesterdaysCompleted = tasks.filter(t => t.completionDate === yesterday);
             
             const prompt = `Bir ebeveyn için proaktif ve cesaretlendirici bir günlük özet hazırla.
@@ -1379,6 +1378,30 @@ const ParentDashboard: React.FC<ParentDashboardProps> = (props) => {
                   {props.storageInfo.showWarning ? '⚡ Arşivle!' : '📚 Arşiv Yap'}
                 </button>
               )}
+            </div>
+          </div>
+        )}
+        
+        {/* API Key Information */}
+        {props.apiKeyInfo && (
+          <div className="mt-2 p-3 bg-slate-50 rounded-lg border">
+            <div className="text-xs text-slate-600 space-y-2">
+              <div className="flex items-center justify-between">
+                <span>🔑 API:</span>
+                <span className={`font-semibold ${props.apiKeyInfo.hasValidKey ? 'text-green-600' : 'text-red-600'}`}>
+                  {props.apiKeyInfo.hasValidKey ? '✓ Aktif' : '⚠ Yok'}
+                </span>
+              </div>
+              <button
+                onClick={props.apiKeyInfo.onChangeKey}
+                className={`w-full px-2 py-1 text-xs rounded-lg transition ${
+                  props.apiKeyInfo.hasValidKey 
+                    ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
+                }`}
+              >
+                {props.apiKeyInfo.hasValidKey ? '🔧 Değiştir' : '⚡ API Ekle'}
+              </button>
             </div>
           </div>
         )}

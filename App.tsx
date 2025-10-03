@@ -6,6 +6,115 @@ import { UserType, Course, Task, PerformanceData, TaskCompletionData, Reward, Ba
 import { GraduationCap, User, Users, Trash2, CheckCircle, XCircle, BadgeCheck, BookMarked, Download, FileText, Home } from './components/icons';
 import { ALL_ICONS } from './constants';
 import { GoogleGenAI, Type } from "@google/genai";
+import { getTasksFromCloud, setTasksToCloud, getArchiveFromCloud, setArchiveToCloud, getApiKeyFromCloud, setApiKeyToCloud } from './cloudSync';
+
+
+
+
+const App: React.FC = () => {
+  // ...state ve yardımcı fonksiyonlar...
+
+  // Export/Import Modal State
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Archive Modal State
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [storageWarning, setStorageWarning] = useState<boolean>(false);
+  // API Key Management State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [isValidatingApiKey, setIsValidatingApiKey] = useState(false);
+  const [hasValidApiKey, setHasValidApiKey] = useState(false);
+  const [userType, setUserType] = useStickyState<UserType>(UserType.Parent, 'userType');
+  const [courses, setCourses] = useStickyState<Course[]>([], 'courses');
+  const [tasks, setTasks] = useStickyState<Task[]>([], 'tasks');
+  const [performanceData, setPerformanceData] = useStickyState<PerformanceData[]>([], 'performanceData');
+  const [rewards, setRewards] = useStickyState<Reward[]>([], 'rewards');
+  const [successPoints, setSuccessPoints] = useStickyState<number>(0, 'successPoints');
+  const [badges, setBadges] = useStickyState<Badge[]>([{ id: 'b1', name: 'İlk Adım', description: 'İlk görevini tamamladın!', icon: BadgeCheck }], 'badges');
+  const [isParentLocked, setIsParentLocked] = useStickyState<boolean>(true, 'isParentLocked');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Toast mesajı ekleme fonksiyonu
+  const addToast = (message: string, type: 'success' | 'error') => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  };
+
+  // --- CLOUD SYNC BLOCK START ---
+  // Cloud sync: açılışta Firestore'dan veri çek
+  useEffect(() => {
+    (async () => {
+      try {
+        const localTasks = window.localStorage.getItem('tasks');
+        if (!localTasks || JSON.parse(localTasks).length === 0) {
+          const cloudTasks = await getTasksFromCloud();
+          if (cloudTasks && cloudTasks.length > 0) setTasks(cloudTasks);
+        }
+        const localArchive = window.localStorage.getItem('archivedTasks');
+        if (!localArchive || JSON.parse(localArchive).length === 0) {
+          const cloudArchive = await getArchiveFromCloud();
+          if (cloudArchive && cloudArchive.length > 0) window.localStorage.setItem('archivedTasks', JSON.stringify(cloudArchive));
+        }
+        const localApiKey = window.localStorage.getItem('googleAiApiKey');
+        if (!localApiKey) {
+          const cloudApiKey = await getApiKeyFromCloud();
+          if (cloudApiKey) {
+            setApiKey(cloudApiKey);
+            window.localStorage.setItem('googleAiApiKey', cloudApiKey);
+          }
+        }
+      } catch (err) {
+        addToast('Bulut verisi alınamadı. (Yalnızca yerel veri kullanılacak)', 'error');
+      }
+    })();
+  }, []);
+
+  // Cloud sync: tasks değişince Firestore'a yaz
+  useEffect(() => {
+    (async () => {
+      try {
+        await setTasksToCloud(tasks);
+      } catch (err) {
+        addToast('Görevler buluta kaydedilemedi.', 'error');
+      }
+    })();
+  }, [tasks]);
+
+  // Cloud sync: archive değişince Firestore'a yaz
+  useEffect(() => {
+    (async () => {
+      try {
+        const archivedTasks = window.localStorage.getItem('archivedTasks');
+        if (archivedTasks) {
+          await setArchiveToCloud(JSON.parse(archivedTasks));
+        }
+      } catch (err) {
+        addToast('Arşiv buluta kaydedilemedi.', 'error');
+      }
+    })();
+  }, [tasks]);
+
+  // Cloud sync: apiKey değişince Firestore'a yaz
+  useEffect(() => {
+    (async () => {
+      try {
+        if (apiKey && apiKey.length > 10) {
+          await setApiKeyToCloud(apiKey);
+        }
+      } catch (err) {
+        addToast('API anahtarı buluta kaydedilemedi.', 'error');
+      }
+    })();
+  }, [apiKey]);
+  // --- CLOUD SYNC BLOCK END ---
 
 const Modal: React.FC<{ show: boolean, onClose: () => void, title: string, children: React.ReactNode }> = ({ show, onClose, title, children }) => {
     if (!show) return null;
@@ -83,6 +192,38 @@ const getArchivedTasksCount = () => {
   }
 };
 
+// API Key validation and management
+const validateApiKey = async (apiKey: string): Promise<boolean> => {
+  if (!apiKey || apiKey.trim().length < 20) {
+    return false;
+  }
+  
+  try {
+    // Basit format kontrolü - daha güvenli
+    const keyPattern = /^[A-Za-z0-9_-]{35,45}$/;
+    return keyPattern.test(apiKey.trim());
+  } catch (error) {
+    console.error('API Key validation error:', error);
+    return false;
+  }
+};
+
+const getStoredApiKey = (): string | null => {
+  try {
+    return localStorage.getItem('googleAiApiKey');
+  } catch {
+    return null;
+  }
+};
+
+const storeApiKey = (apiKey: string): void => {
+  try {
+    localStorage.setItem('googleAiApiKey', apiKey.trim());
+  } catch (error) {
+    console.error('API Key storage error:', error);
+  }
+};
+
 // useStickyState hook for localStorage persistence
 function useStickyState<T>(defaultValue: T, key: string): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [value, setValue] = useState<T>(() => {
@@ -119,6 +260,13 @@ const App: React.FC = () => {
   // Archive Modal State
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [storageWarning, setStorageWarning] = useState<boolean>(false);
+  
+  // API Key Management State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [isValidatingApiKey, setIsValidatingApiKey] = useState(false);
+  const [hasValidApiKey, setHasValidApiKey] = useState(false);
   // Export all app data as JSON
   const handleExportData = () => {
     const data = {
@@ -181,6 +329,52 @@ const App: React.FC = () => {
     
     setShowArchiveModal(false);
   };
+  
+  // API Key handlers
+  const handleApiKeySubmit = async () => {
+    if (!apiKey.trim()) {
+      setApiKeyError('Lütfen geçerli bir API anahtarı girin.');
+      return;
+    }
+    
+    setIsValidatingApiKey(true);
+    setApiKeyError(null);
+    
+    const isValid = await validateApiKey(apiKey);
+    
+    if (isValid) {
+      storeApiKey(apiKey);
+      setHasValidApiKey(true);
+      setShowApiKeyModal(false);
+      addToast('API anahtarı başarıyla kaydedildi!', 'success');
+      
+      // AI instance'ı yenile
+      if (ai.current) {
+        try {
+          ai.current = new GoogleGenAI({ apiKey: apiKey.trim() });
+        } catch (error) {
+          console.error('AI instance renewal error:', error);
+        }
+      }
+    } else {
+      setApiKeyError('Geçersiz API anahtarı. Lütfen doğru formatı kontrol edin.');
+    }
+    
+    setIsValidatingApiKey(false);
+  };
+  
+  const handleApiKeyChange = () => {
+    setShowApiKeyModal(true);
+    setApiKeyError(null);
+  };
+  
+  const closeApiKeyModal = () => {
+    if (!hasValidApiKey) {
+      setApiKeyError('Uygulamayı kullanmak için geçerli bir API anahtarı gereklidir.');
+      return;
+    }
+    setShowApiKeyModal(false);
+  };
 
   // Import butonuna tıklanınca dosya seçtir
   const triggerImportFile = () => {
@@ -212,6 +406,28 @@ const App: React.FC = () => {
       }
     }
   }, [tasks]);
+  
+  // API Key initialization
+  useEffect(() => {
+    const storedApiKey = getStoredApiKey();
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+      // Validate stored API key
+      validateApiKey(storedApiKey).then(isValid => {
+        setHasValidApiKey(isValid);
+        if (!isValid) {
+          setApiKeyError('Kaydedilen API anahtarı geçersiz. Lütfen yeni bir tane girin.');
+          setShowApiKeyModal(true);
+        }
+      }).catch(() => {
+        setHasValidApiKey(false);
+        setApiKeyError('API anahtarı doğrulanamadı. İnternet bağlantınızı kontrol edin.');
+        setShowApiKeyModal(true);
+      });
+    } else {
+      setShowApiKeyModal(true);
+    }
+  }, []);
  
   const prevTasksRef = useRef<Task[]>(tasks);
 
@@ -711,6 +927,10 @@ const App: React.FC = () => {
                       showWarning: storageWarning,
                       onArchive: () => setShowArchiveModal(true)
                     }}
+                    apiKeyInfo={{
+                      hasValidKey: hasValidApiKey,
+                      onChangeKey: handleApiKeyChange
+                    }}
                   />
                   {/* Import Modal */}
                   <Modal show={showImportModal} onClose={() => setShowImportModal(false)} title="Veri Yedeğini Geri Yükle">
@@ -775,6 +995,64 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </Modal>
+                  
+                  {/* API Key Modal */}
+                  <Modal show={showApiKeyModal} onClose={closeApiKeyModal} title="API Anahtarı Ayarları">
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-blue-800 mb-2">🔑 Google AI API Anahtarı</h4>
+                        <div className="text-sm text-blue-700 space-y-1">
+                          <p>• Yapay zeka özelliklerini kullanmak için gereklidir</p>
+                          <p>• Google AI Studio'dan ücretsiz alabilirsiniz</p>
+                          <p>• Anahtar güvenli şekilde cihazınızda saklanır</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-slate-700">
+                          API Anahtarı:
+                        </label>
+                        <input
+                          type="password"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="AIzaSyD..."
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        />
+                      </div>
+                      
+                      {apiKeyError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <p className="text-sm text-red-700">{apiKeyError}</p>
+                        </div>
+                      )}
+                      
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={handleApiKeySubmit}
+                          disabled={isValidatingApiKey || !apiKey.trim()}
+                          className="flex-1 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition"
+                        >
+                          {isValidatingApiKey ? '🔄 Kontrol Ediliyor...' : '💾 Kaydet'}
+                        </button>
+                        {hasValidApiKey && (
+                          <button
+                            onClick={closeApiKeyModal}
+                            className="px-4 py-2 text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition"
+                          >
+                            İptal
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
+                        <p><strong>API Anahtarı Nasıl Alınır?</strong></p>
+                        <p>1. aistudio.google.com adresine gidin</p>
+                        <p>2. "Get API key" butonuna tıklayın</p>
+                        <p>3. Oluşturulan anahtarı buraya yapıştırın</p>
+                      </div>
+                    </div>
+                  </Modal>
                 </>
             )
         ) : (
@@ -795,6 +1073,6 @@ const App: React.FC = () => {
       </main>
     </div>
   );
-};
+}
 
 export default App;
