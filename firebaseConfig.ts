@@ -1,15 +1,13 @@
-// Firebase yapılandırma dosyası (örnek)
-// Kendi Firebase projenin ayarları ile doldurmalısın
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "FIREBASE_API_KEY",
-  authDomain: "FIREBASE_AUTH_DOMAIN",
-  projectId: "FIREBASE_PROJECT_ID",
-  storageBucket: "FIREBASE_STORAGE_BUCKET",
-  messagingSenderId: "FIREBASE_MESSAGING_SENDER_ID",
-  appId: "FIREBASE_APP_ID"
+  apiKey: import.meta.env.VITE_GOOGLE_AI_API_KEY,
+  authDomain: "ders-tak.firebaseapp.com",
+  projectId: "ders-tak",
+  storageBucket: "ders-tak.firebasestorage.app",
+  messagingSenderId: "1017687251305",
+  appId: "1:1017687251305:web:8bdbe9daebe6b1366685f8"
 };
 
 const app = initializeApp(firebaseConfig);
