@@ -151,7 +151,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
             breakTime: 0,
             pauseTime: Math.round(finalPauseSeconds)
         });
-        
+
         // Sınav için exam results'ı initialize et
         if (task.taskType === 'sınav' && task.examConfig) {
             setExamResults(task.examConfig.courses.map(c => ({
@@ -161,7 +161,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
                 net: 0
             })));
         }
-        
+
         setShowCompletionModal(true);
     };
 
@@ -174,7 +174,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
             pauseTime: completionData.pauseTime || 0,
             ...completionData
         };
-        
+
         // Sınav için exam results ve totalNet ekle
         if (completingTask.taskType === 'sınav') {
             const totalNet = examResults.reduce((sum, r) => sum + r.net, 0);
@@ -191,41 +191,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
         setExamResults([]);
     };
 
-    > = ({ tasks }) => {
-        const data = useMemo(() => {
-            const days = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-            const last7Days = Array.from({ length: 7 }, (_, i) => {
-                const d = new Date();
-                d.setDate(d.getDate() - (6 - i));
-                return d;
-            });
 
-            return last7Days.map(date => {
-                const dateStr = date.toISOString().split('T')[0];
-                const dayTasks = tasks.filter(t => t.status === 'tamamlandı' && (t.completionDate === dateStr));
-                const points = dayTasks.reduce((acc, t) => acc + (t.pointsAwarded || 0), 0);
-                return {
-                    name: days[date.getDay()],
-                    points
-                };
-            });
-        }, [tasks]);
-
-        return (
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mt-6">
-                <h3 className="text-lg font-bold text-slate-700 mb-4">Haftalık Puan Grafiği</h3>
-                <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data}>
-                            <XAxis dataKey="name" fontSize={12} />
-                            <Tooltip />
-                            <Bar dataKey="points" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-        );
-    };
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
@@ -266,7 +232,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
 
             <div className="max-w-5xl mx-auto p-4">
                 {/* Active Task Banner */}
-                <ActiveTaskBanner 
+                <ActiveTaskBanner
                     activeTaskId={activeTaskId}
                     tasks={tasks}
                     timerSeconds={timerSeconds}
@@ -297,7 +263,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
                                 <div className="grid gap-4 md:grid-cols-2">
                                     {pendingTasks.map(task => {
                                         const CourseIcon = courses.find(c => c.id === task.courseId)?.icon || BookOpen;
-                                        const IconComponent = typeof CourseIcon === 'string' ? getIconComponent(CourseIcon) : CourseIcon;
+                                        const IconComponent = (typeof CourseIcon === 'string' ? getIconComponent(CourseIcon) : CourseIcon) || BookOpen;
                                         const isLocked = activeTaskId !== null && activeTaskId !== task.id;
 
                                         return (
@@ -376,7 +342,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
                 {activeTab === 'oduller' && (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {rewards.map(reward => {
-                            const Icon = typeof reward.icon === 'string' ? getIconComponent(reward.icon) : reward.icon;
+                            const Icon = (typeof reward.icon === 'string' ? getIconComponent(reward.icon) : reward.icon) || Gift;
                             const canAfford = successPoints >= reward.cost;
 
                             return (
@@ -389,7 +355,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
                                             {reward.cost} Puan
                                         </div>
                                     </div>
-                                    <h4 className="text-lg font-bold text-slate-800 mb-2">{reward.name}</h4>
+                                    <h4 className="text-lg font-bold text-slate-800 mb-2">{reward.title}</h4>
                                     <button
                                         onClick={() => claimReward(reward.id)}
                                         disabled={!canAfford}
@@ -412,7 +378,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
                 {activeTab === 'rozetler' && (
                     <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
                         {badges.map(badge => {
-                            const Icon = typeof badge.icon === 'string' ? getIconComponent(badge.icon) : badge.icon;
+                            const Icon = (typeof badge.icon === 'string' ? getIconComponent(badge.icon) : badge.icon) || Award;
                             return (
                                 <div key={badge.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 text-center flex flex-col items-center">
                                     <div className="bg-amber-50 p-4 rounded-full mb-3">
@@ -434,7 +400,7 @@ const ChildDashboard: React.FC<ChildDashboardProps> = ({
             </div>
 
             {/* Completion Modal */}
-            <TaskCompletionModal 
+            <TaskCompletionModal
                 show={showCompletionModal}
                 task={completingTask}
                 timerSeconds={timerSeconds}

@@ -538,7 +538,7 @@ const App: React.FC = () => {
     const reward = rewards.find(r => r.id === rewardId);
     if (reward && successPoints >= reward.cost) {
       setSuccessPoints(prev => prev - reward.cost);
-      addToast(`'${reward.name}' ödül talebiniz iletildi!`, 'success');
+      addToast(`'${reward.title}' ödül talebiniz iletildi!`, 'success');
     } else {
       addToast('Bu ödülü almak için yeterli puanınız yok!', 'error');
     }

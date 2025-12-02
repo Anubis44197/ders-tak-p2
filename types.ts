@@ -22,6 +22,37 @@ export interface Course {
   icon: React.ComponentType<{ className?: string }> | string; // String for Firebase compatibility
 }
 
+export interface PerformanceData {
+  courseId: string;
+  courseName?: string;
+  correct: number;
+  incorrect: number;
+  timeSpent: number;
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }> | string;
+}
+
+export interface ExamResult {
+  courseId: string;
+  correct: number;
+  incorrect: number;
+  net: number;
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  results: ExamResult[];
+  totalNet: number;
+  totalScore?: number; // Optional
+}
+
 export interface Task {
   id: string;
   courseId: string;
@@ -51,7 +82,7 @@ export interface Task {
   pointsAwarded?: number;
   isSelfAssigned?: boolean;
   createdAt?: string; // ISO string for Firebase compatibility
-  
+
   // Sınav için özel alanlar
   examConfig?: {
     courses: Array<{
@@ -63,44 +94,26 @@ export interface Task {
   totalNet?: number;  // Toplam net (sınav için)
 }
 
-
-
-export interface PerformanceData {
-  courseId: string;
-}
-
-export interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }> | string;
-}
-
 export interface Reward {
   id: string;
   title: string;
-  pointCost: number;
-  description?: string;
+  cost: number;
+  icon?: string;
+  claimed?: boolean;
 }
 
-
-
-
-
-export interface ExamResult {
-  courseId: string;
-  correct: number;
-  incorrect: number;
-  net: number;
+export interface ReportData {
+  period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar';
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
 }
 
-export interface Exam {
-  id: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  results: ExamResult[];
-  totalNet: number;
-  totalScore?: number; // Optional
+export interface TimeFilterValue {
+  period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom';
+  startDate?: string;
+  endDate?: string;
 }
 
 // Props for ParentDashboard
@@ -164,28 +177,6 @@ export interface ParentLockScreenProps {
 
 export type ChildView = 'tasks' | 'treasures' | 'stats' | 'assistant';
 export type TaskFilter = 'today' | 'upcoming' | 'all';
-
-export interface TimeFilterValue {
-  period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom';
-  startDate?: string;
-  endDate?: string;
-}
-
-export interface Reward {
-  id: string;
-  title: string;
-  cost: number;
-  icon?: string;
-  claimed?: boolean;
-}
-
-export interface ReportData {
-  period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar';
-  summary: string;
-  strengths: string[];
-  weaknesses: string[];
-  suggestions: string[];
-}
 
 export interface DailyBriefingData {
   summary: string;

@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
-import { 
-    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2, 
-    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer, 
+import {
+    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2,
+    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer,
     Download, ArrowUpDown, Trophy, Sparkles, BookMarked, AlertTriangle, Info, Settings, Send,
     Smile, Frown, Meh, Star, Award, Play, Pause, XCircle
 } from '../icons';
 import { getIconComponent } from '../../constants';
-import { 
-    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps, 
-    Course, Reward, Exam, ExamResult, TaskCompletionData 
+import {
+    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps,
+    Course, Reward, Exam, ExamResult, TaskCompletionData
 } from '../../types';
 import { GoogleGenAI } from "@google/genai";
 import { isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
@@ -19,6 +19,7 @@ import TimeRangeFilter, { type TimeFilterValue } from '../shared/TimeRangeFilter
 import EmptyState from '../shared/EmptyState';
 import Modal from './shared/Modal'; // For components that use Modal
 import StatCard from './shared/StatCard'; // For components that use StatCard
+import CoursesManager from './CoursesManager';
 
 
 const CoursesDashboard: React.FC<ParentDashboardProps> = ({ courses, tasks, addCourse, deleteCourse }) => {
@@ -143,10 +144,10 @@ const CoursesDashboard: React.FC<ParentDashboardProps> = ({ courses, tasks, addC
                     <div className="space-y-6">
                         <h2 className="text-3xl font-bold">{selectedCourse.name} Analizi</h2>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard title="Genel Başarı" value={courseStats?.successRate || 'N/A'} icon={<TrendingUp className="w-6 h-6 text-primary-600" />} />
+                            <StatCard title="Genel Başarı" value={courseStats?.successRate ? `%${courseStats.successRate}` : 'N/A'} icon={<TrendingUp className="w-6 h-6 text-primary-600" />} />
                             <StatCard title="Toplam Süre" value={courseStats?.timeSpent || 'N/A'} icon={<Clock className="w-6 h-6 text-primary-600" />} />
-                            <StatCard title="Biten Görevler" value={courseStats?.completedCount || 'N/A'} icon={<CheckCircle className="w-6 h-6 text-primary-600" />} />
-                            <StatCard title="Bekleyen Görevler" value={courseStats?.pendingCount || 'N/A'} icon={<ClipboardList className="w-6 h-6 text-primary-600" />} />
+                            <StatCard title="Biten Görevler" value={courseStats?.completedCount?.toString() || 'N/A'} icon={<CheckCircle className="w-6 h-6 text-primary-600" />} />
+                            <StatCard title="Bekleyen Görevler" value={courseStats?.pendingCount?.toString() || 'N/A'} icon={<ClipboardList className="w-6 h-6 text-primary-600" />} />
                         </div>
 
                         <div className="bg-white p-6 rounded-xl shadow-md">

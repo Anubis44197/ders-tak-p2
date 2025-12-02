@@ -1,6 +1,6 @@
 import React from 'react';
 import { Task } from '../../types';
-import { Play, Pause, CheckCircle } from './icons'; // Need to ensure icons exist or use lucide-react
+import { Play, Pause, CheckCircle } from '../icons'; // Need to ensure icons exist or use lucide-react
 
 interface ActiveTaskBannerProps {
     activeTaskId: string | null;
@@ -24,7 +24,7 @@ const ActiveTaskBanner: React.FC<ActiveTaskBannerProps> = ({
     formatDuration
 }) => {
     if (!activeTaskId) return null;
-    
+
     const task = tasks.find(t => t.id === activeTaskId);
     if (!task) return null;
 

@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
-import { 
-    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2, 
-    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer, 
+import {
+    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2,
+    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer,
     Download, ArrowUpDown, Trophy, Sparkles, BookMarked, AlertTriangle, Info, Settings, Send,
     Smile, Frown, Meh, Star, Award, Play, Pause, XCircle
 } from '../icons';
 import { getIconComponent } from '../../constants';
-import { 
-    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps, 
-    Course, Reward, Exam, ExamResult, TaskCompletionData 
+import {
+    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps,
+    Course, Reward, Exam, ExamResult, TaskCompletionData
 } from '../../types';
 import { GoogleGenAI } from "@google/genai";
 import { isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
@@ -20,6 +20,39 @@ import EmptyState from '../shared/EmptyState';
 import Modal from './shared/Modal'; // For components that use Modal
 import StatCard from './shared/StatCard'; // For components that use StatCard
 
+
+const ExamPerformanceChart: React.FC<{ exams: Exam[] }> = ({ exams }) => {
+    const data = useMemo(() => {
+        return [...exams]
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .map(e => ({
+                name: e.title, // Or date
+                date: e.date,
+                net: e.totalNet
+            }));
+    }, [exams]);
+
+    if (exams.length === 0) return null;
+
+    return (
+        <div className="bg-white p-6 rounded-xl shadow-md mb-6">
+            <h3 className="text-xl font-bold mb-4 flex items-center">
+                <TrendingUp className="w-6 h-6 mr-2 text-green-600" />
+                Sınav Performans Grafiği
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
+                    <XAxis dataKey="date" fontSize={12} tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} />
+                    <YAxis />
+                    <Tooltip labelFormatter={(label) => new Date(label).toLocaleDateString()} />
+                    <Legend />
+                    <Line type="monotone" dataKey="net" name="Toplam Net" stroke="#8884d8" strokeWidth={3} activeDot={{ r: 8 }} />
+                </LineChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
 
 const PerformanceAnalytics: React.FC<{
     tasks: Task[],

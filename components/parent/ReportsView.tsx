@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
-import { 
-    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2, 
-    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer, 
+import {
+    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2,
+    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer,
     Download, ArrowUpDown, Trophy, Sparkles, BookMarked, AlertTriangle, Info, Settings, Send,
     Smile, Frown, Meh, Star, Award, Play, Pause, XCircle
 } from '../icons';
 import { getIconComponent } from '../../constants';
-import { 
-    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps, 
-    Course, Reward, Exam, ExamResult, TaskCompletionData 
+import {
+    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps,
+    Course, Reward, Exam, ExamResult, TaskCompletionData
 } from '../../types';
 import { GoogleGenAI } from "@google/genai";
 import { isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
@@ -22,7 +22,7 @@ import StatCard from './shared/StatCard'; // For components that use StatCard
 
 
 const ReportsView: React.FC<{
-    generateReport: (type: string, dateRange: string) => Promise<ReportData | null>;
+    generateReport: (period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar') => Promise<ReportData | null>;
     courses: Course[];
     tasks: Task[];
     timeFilter: TimeFilterValue;
@@ -45,7 +45,7 @@ const ReportsView: React.FC<{
                 'custom': 'Haftalık'
             };
             const mappedPeriod = periodMap[timeFilter.period] || 'Haftalık';
-            const data = await generateReport('general', mappedPeriod);
+            const data = await generateReport(mappedPeriod);
             setReport(data);
         } catch (err) {
             setError('Rapor oluşturulurken bir hata oluştu.');

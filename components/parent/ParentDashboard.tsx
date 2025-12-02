@@ -31,27 +31,6 @@ import ExamManager from './ExamManager';
 import PerformanceAnalytics from './PerformanceAnalytics';
 import CoursesDashboard from './CoursesDashboard';
 import ReportsView from './ReportsView';
-
-
-
-
-    <div className="bg-white p-6 rounded-xl shadow-md flex items-center space-x-4">
-        <div className="bg-primary-100 p-3 rounded-full">
-            {icon}
-        </div>
-        <div>
-            <p className="text-sm text-slate-500">{title}</p>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
-        </div>
-    </div>
-);
-
-
-
-
-
-
-
 const ExamPerformanceChart: React.FC<{ exams: Exam[] }> = ({ exams }) => {
     const data = useMemo(() => {
         return [...exams]
@@ -136,7 +115,7 @@ const ParentDashboard: React.FC<ParentDashboardProps> = (props) => {
             case 'courses':
                 return <CoursesDashboard {...props} />;
             case 'tasks':
-                return <TaskManager tasks={props.tasks} courses={props.courses} addTask={props.addTask} deleteTask={props.deleteTask} assignTask={props.assignTask} />;
+                return <TaskManager tasks={props.tasks} courses={props.courses} addTask={props.addTask} deleteTask={props.deleteTask} />;
             case 'analytics':
                 return <PerformanceAnalytics
                     tasks={props.tasks}
