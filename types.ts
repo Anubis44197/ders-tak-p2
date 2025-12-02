@@ -31,7 +31,7 @@ export interface Task {
   status: 'bekliyor' | 'tamamlandı';
   postponed?: boolean; // Görev daha sonra yapılmak üzere ertelendi mi?
   assignedTo?: string; // Görev uzaktan atandıysa, atanacak çocuk kullanıcı ID'si
-  taskType: 'soru çözme' | 'ders çalışma' | 'kitap okuma';
+  taskType: 'soru çözme' | 'ders çalışma' | 'kitap okuma' | 'sınav';
   readingType?: 'ders' | 'serbest'; // For kitap okuma tasks only
   plannedDuration: number; // in minutes
   questionCount?: number;
@@ -51,57 +51,63 @@ export interface Task {
   pointsAwarded?: number;
   isSelfAssigned?: boolean;
   createdAt?: string; // ISO string for Firebase compatibility
+  
+  // Sınav için özel alanlar
+  examConfig?: {
+    courses: Array<{
+      courseId: string;
+      questionCount: number;
+    }>;
+  };
+  examResults?: ExamResult[];  // Sınav sonuçları (tamamlandıktan sonra)
+  totalNet?: number;  // Toplam net (sınav için)
 }
 
 
 
 export interface PerformanceData {
   courseId: string;
-  courseName: string;
-  correct: number;
-  incorrect: number;
-  timeSpent: number; // in minutes
-}
-
-export interface TimeSeriesData {
-  date: string;
-  performance: number; // e.g., average score
-}
-
-export interface ReportData {
-  period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar';
-  aiSummary: string;
-  highlights: {
-    mostImproved: string;
-    needsFocus: string;
-  };
-  aiSuggestion: string;
-}
-
-export interface DailyBriefingData {
-    summary: string;
-    suggestion: string;
-}
-
-
-export interface Reward {
-    id: string;
-    name: string;
-    cost: number;
-    icon: React.ComponentType<{ className?: string }> | string;
 }
 
 export interface Badge {
-    id: string;
-    name: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }> | string;
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }> | string;
+}
+
+export interface Reward {
+  id: string;
+  title: string;
+  pointCost: number;
+  description?: string;
+}
+
+
+
+
+
+export interface ExamResult {
+  courseId: string;
+  correct: number;
+  incorrect: number;
+  net: number;
+}
+
+export interface Exam {
+  id: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  results: ExamResult[];
+  totalNet: number;
+  totalScore?: number; // Optional
 }
 
 // Props for ParentDashboard
 export interface ParentDashboardProps {
   courses: Course[];
   tasks: Task[];
+  exams: Exam[];
   performanceData: PerformanceData[];
   rewards: Reward[];
   ai: GoogleGenAI;
@@ -109,7 +115,10 @@ export interface ParentDashboardProps {
   deleteCourse: (courseId: string) => void;
   addTask: (task: Omit<Task, 'id' | 'status'>) => Promise<Task>;
   deleteTask: (taskId: string) => void;
+  addExam: (exam: Omit<Exam, 'id'>) => void;
+  deleteExam: (examId: string) => void;
   addReward: (reward: Omit<Reward, 'id'>) => void;
+
   deleteReward: (rewardId: string) => void;
   generateReport: (period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar') => Promise<ReportData | null>;
   onExportData?: () => Promise<void>;
@@ -122,13 +131,13 @@ export interface ParentDashboardProps {
 }
 
 export interface TaskCompletionData {
-    actualDuration: number;
-    breakTime: number;
-    pauseTime: number;
-    pagesRead?: number;
-    correctCount?: number;
-    incorrectCount?: number;
-    emptyCount?: number;
+  actualDuration: number;
+  breakTime: number;
+  pauseTime: number;
+  pagesRead?: number;
+  correctCount?: number;
+  incorrectCount?: number;
+  emptyCount?: number;
 }
 
 // Props for ChildDashboard
@@ -157,7 +166,30 @@ export type ChildView = 'tasks' | 'treasures' | 'stats' | 'assistant';
 export type TaskFilter = 'today' | 'upcoming' | 'all';
 
 export interface TimeFilterValue {
-  period: 'day' | 'week' | 'month' | 'year' | 'all';
+  period: 'day' | 'week' | 'month' | 'year' | 'all' | 'custom';
   startDate?: string;
   endDate?: string;
+}
+
+export interface Reward {
+  id: string;
+  title: string;
+  cost: number;
+  icon?: string;
+  claimed?: boolean;
+}
+
+export interface ReportData {
+  period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar';
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+}
+
+export interface DailyBriefingData {
+  summary: string;
+  completedCount: number;
+  pendingCount: number;
+  totalTime: number;
 }

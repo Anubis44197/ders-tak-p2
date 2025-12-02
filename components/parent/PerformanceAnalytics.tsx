@@ -1,136 +1,171 @@
-import React, { useMemo } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Task } from '../../types';
-import { taskArrayComparison } from '../../utils/performanceOptimizer';
+import React, { useState, useMemo, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+import { 
+    BarChart as BarChartIcon, BookOpen, ClipboardList, FileText, Home, PlusCircle, Trash2, 
+    TrendingUp, TrendingDown, CheckCircle, Clock, ListFilter, Brain, Zap, Gift, Printer, 
+    Download, ArrowUpDown, Trophy, Sparkles, BookMarked, AlertTriangle, Info, Settings, Send,
+    Smile, Frown, Meh, Star, Award, Play, Pause, XCircle
+} from '../icons';
+import { getIconComponent } from '../../constants';
+import { 
+    DailyBriefingData, PerformanceData, ReportData, Task, ParentDashboardProps, 
+    Course, Reward, Exam, ExamResult, TaskCompletionData 
+} from '../../types';
+import { GoogleGenAI } from "@google/genai";
+import { isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
+import { getLocalDateString, getShortDisplayDate, getDaysAgo, parseDate, isSameDay } from '../../utils/dateUtils';
+import { processChartData, processWeeklyData, processMonthlyTrends } from '../../utils/chartDataProcessor';
+import TimeRangeFilter, { type TimeFilterValue } from '../shared/TimeRangeFilter';
+import EmptyState from '../shared/EmptyState';
+import Modal from './shared/Modal'; // For components that use Modal
+import StatCard from './shared/StatCard'; // For components that use StatCard
 
-interface PerformanceAnalyticsProps {
-  tasks: Task[];
-}
 
-// Haftalık, aylık, yıllık performans verilerini hesaplayan yardımcı fonksiyonlar
-function getWeeklyPerformance(tasks: Task[]) {
-  const weekData: { week: string, completed: number, duration: number }[] = [];
-  const weekMap: Record<string, { completed: number, duration: number }> = {};
-  tasks.forEach(task => {
-    if (!task.completionDate) return;
-    const date = new Date(task.completionDate);
-    const year = date.getFullYear();
-    const week = Math.ceil((date.getDate() + 6 - date.getDay()) / 7);
-    const key = `${year}-W${week}`;
-    if (!weekMap[key]) weekMap[key] = { completed: 0, duration: 0 };
-    weekMap[key].completed += 1;
-    weekMap[key].duration += task.actualDuration || 0;
-  });
-  Object.entries(weekMap).forEach(([week, data]) => {
-    weekData.push({ week, completed: data.completed, duration: Math.round(data.duration / 60) });
-  });
-  weekData.sort((a, b) => a.week.localeCompare(b.week));
-  return weekData;
-}
+const PerformanceAnalytics: React.FC<{
+    tasks: Task[],
+    courses: Course[],
+    exams: Exam[],
+    ai: GoogleGenAI | null,
+    timeFilter: TimeFilterValue,
+    onTimeFilterChange?: React.Dispatch<React.SetStateAction<TimeFilterValue>>
+}> = ({ tasks, courses, exams, ai, timeFilter, onTimeFilterChange }) => {
 
-function getMonthlyPerformance(tasks: Task[]) {
-  const monthData: { month: string, completed: number, duration: number }[] = [];
-  const monthMap: Record<string, { completed: number, duration: number }> = {};
-  tasks.forEach(task => {
-    if (!task.completionDate) return;
-    const date = new Date(task.completionDate);
-    const key = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}`;
-    if (!monthMap[key]) monthMap[key] = { completed: 0, duration: 0 };
-    monthMap[key].completed += 1;
-    monthMap[key].duration += task.actualDuration || 0;
-  });
-  Object.entries(monthMap).forEach(([month, data]) => {
-    monthData.push({ month, completed: data.completed, duration: Math.round(data.duration / 60) });
-  });
-  monthData.sort((a, b) => a.month.localeCompare(b.month));
-  return monthData;
-}
+    // Activity Trend Data (Area Chart)
+    const activityData = useMemo(() => {
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return d.toISOString().split('T')[0];
+        });
 
-function getYearlyPerformance(tasks: Task[]) {
-  const yearData: { year: string, completed: number, duration: number }[] = [];
-  const yearMap: Record<string, { completed: number, duration: number }> = {};
-  tasks.forEach(task => {
-    if (!task.completionDate) return;
-    const date = new Date(task.completionDate);
-    const key = `${date.getFullYear()}`;
-    if (!yearMap[key]) yearMap[key] = { completed: 0, duration: 0 };
-    yearMap[key].completed += 1;
-    yearMap[key].duration += task.actualDuration || 0;
-  });
-  Object.entries(yearMap).forEach(([year, data]) => {
-    yearData.push({ year, completed: data.completed, duration: Math.round(data.duration / 60) });
-  });
-  yearData.sort((a, b) => a.year.localeCompare(b.year));
-  return yearData;
-}
+        return last7Days.map(date => {
+            const dayTasks = tasks.filter(t => t.status === 'tamamlandı' && t.completionDate === date);
+            const totalDuration = dayTasks.reduce((acc, t) => acc + (t.actualDuration || 0), 0) / 60; // Minutes
+            const questionCount = dayTasks.reduce((acc, t) => acc + (t.questionCount || 0), 0);
 
-// AI özet fonksiyonu (dummy)
-function getPerformanceSummary(tasks: Task[]): string {
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.status === 'tamamlandı').length;
-  const totalDuration = tasks.reduce((sum, t) => sum + (t.actualDuration || 0), 0);
-  return `Toplam ${total} görevden ${completed} tanesi tamamlandı. Toplam çalışma süresi: ${Math.round(totalDuration/60)} dakika.`;
-}
+            return {
+                name: new Date(date).toLocaleDateString('tr-TR', { weekday: 'short' }),
+                date: date,
+                "Çalışma Süresi (dk)": Math.round(totalDuration),
+                "Soru Sayısı": questionCount
+            };
+        });
+    }, [tasks]);
 
-const PerformanceAnalytics: React.FC<PerformanceAnalyticsProps> = React.memo(({ tasks }) => {
-  // Memoize expensive calculations
-  const weeklyData = useMemo(() => getWeeklyPerformance(tasks), [tasks]);
-  const monthlyData = useMemo(() => getMonthlyPerformance(tasks), [tasks]);
-  const yearlyData = useMemo(() => getYearlyPerformance(tasks), [tasks]);
-  const summary = useMemo(() => getPerformanceSummary(tasks), [tasks]);
+    // Weekly Course Distribution (Stacked Bar)
+    const weeklyDistribution = useMemo(() => {
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (6 - i));
+            return d.toISOString().split('T')[0];
+        });
 
-  return (
-    <div className="space-y-8">
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Performans Özeti (AI)</h3>
-        <p className="text-gray-700 text-base">{summary}</p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Haftalık Performans</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={weeklyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="completed" fill="#6366F1" name="Tamamlanan Görev" />
-              <Bar dataKey="duration" fill="#10B981" name="Toplam Süre (dk)" />
-            </BarChart>
-          </ResponsiveContainer>
+        return last7Days.map(date => {
+            const dayTasks = tasks.filter(t => t.status === 'tamamlandı' && t.completionDate === date);
+            const entry: any = { name: new Date(date).toLocaleDateString('tr-TR', { weekday: 'short' }) };
+
+            courses.forEach(c => {
+                const courseTasks = dayTasks.filter(t => t.courseId === c.id);
+                // We can sum duration or questions. Let's sum duration for now.
+                const duration = courseTasks.reduce((acc, t) => acc + (t.actualDuration || 0), 0) / 60;
+                if (duration > 0) entry[c.name] = Math.round(duration);
+            });
+            return entry;
+        });
+    }, [tasks, courses]);
+
+    const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+
+    const summaryStats = useMemo(() => {
+        const d = new Date();
+        const day = d.getDay(),
+            diff = d.getDate() - day + (day == 0 ? -6 : 1);
+        const startOfThisWeek = new Date(d.setDate(diff)).setHours(0, 0, 0, 0);
+
+        const completedTasks = tasks.filter(t => t.status === 'tamamlandı');
+
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        const todayTasks = completedTasks.filter(t => t.completionDate === todayStr);
+        const weekTasks = completedTasks.filter(t => {
+            if (!t.completionDate) return false;
+            return new Date(t.completionDate).getTime() >= startOfThisWeek;
+        });
+
+        const todayDuration = Math.round(todayTasks.reduce((acc, t) => acc + (t.actualDuration || 0), 0) / 60);
+        const weekQuestions = weekTasks.reduce((acc, t) => acc + (t.questionCount || 0), 0);
+        const weekDuration = Math.round(weekTasks.reduce((acc, t) => acc + (t.actualDuration || 0), 0) / 60);
+
+        return { todayDuration, weekQuestions, weekDuration };
+    }, [tasks]);
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p className="text-sm text-blue-600 font-semibold">Bugün Çalışma</p>
+                    <p className="text-2xl font-bold text-blue-800">{summaryStats.todayDuration} dk</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                    <p className="text-sm text-purple-600 font-semibold">Bu Hafta Soru</p>
+                    <p className="text-2xl font-bold text-purple-800">{summaryStats.weekQuestions} Soru</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                    <p className="text-sm text-green-600 font-semibold">Bu Hafta Süre</p>
+                    <p className="text-2xl font-bold text-green-800">{summaryStats.weekDuration} dk</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl shadow-md">
+                    <h3 className="text-xl font-bold mb-4 flex items-center">
+                        <TrendingUp className="w-6 h-6 mr-2 text-blue-600" />
+                        Haftalık Aktivite Trendi
+                    </h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <AreaChart data={activityData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorDuration" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <XAxis dataKey="name" />
+                            <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
+                            <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <Tooltip />
+                            <Legend />
+                            <Area yAxisId="left" type="monotone" dataKey="Çalışma Süresi (dk)" stroke="#3b82f6" fillOpacity={1} fill="url(#colorDuration)" />
+                            <Area yAxisId="right" type="monotone" dataKey="Soru Sayısı" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.3} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-md">
+                    <h3 className="text-xl font-bold mb-4 flex items-center">
+                        <BarChartIcon className="w-6 h-6 mr-2 text-purple-600" />
+                        Ders Dağılımı (Haftalık)
+                    </h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={weeklyDistribution} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            {courses.map((course, index) => (
+                                <Bar key={course.id} dataKey={course.name} stackId="a" fill={colors[index % colors.length]} />
+                            ))}
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            <ExamPerformanceChart exams={exams} />
         </div>
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Aylık Performans</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="completed" stroke="#6366F1" strokeWidth={3} name="Tamamlanan Görev" />
-              <Line type="monotone" dataKey="duration" stroke="#10B981" strokeWidth={2} name="Toplam Süre (dk)" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Yıllık Performans</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <LineChart data={yearlyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="year" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="completed" stroke="#6366F1" strokeWidth={3} name="Tamamlanan Görev" />
-            <Line type="monotone" dataKey="duration" stroke="#10B981" strokeWidth={2} name="Toplam Süre (dk)" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}, taskArrayComparison);
+    );
+};
 
-// Display name for React DevTools
-PerformanceAnalytics.displayName = 'PerformanceAnalytics';
 
 export default PerformanceAnalytics;

@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import FloatingNotification from './components/shared/FloatingNotification';
 import RealtimeNotificationCenter from './components/shared/RealtimeNotificationCenter';
 import ParentDashboard from './components/parent/ParentDashboard';
-import ChildDashboard from './components/child/ChildDashboard';
+import ChildDashboard from './ChildDashboard';
 import ParentLockScreen from './components/parent/ParentLockScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import TaskDetailModal from './components/shared/TaskDetailModal';
 // import { FirebaseProvider } from './src/contexts/FirebaseContext'; // Firebase geçici devre dışı
-import { UserType, Course, Task, PerformanceData, TaskCompletionData, Reward, Badge, ReportData } from './types';
+import { UserType, Course, Task, PerformanceData, TaskCompletionData, Reward, Badge, ReportData, Exam } from './types';
 import { GraduationCap, User, Users, Trash2, CheckCircle, XCircle, BadgeCheck } from './components/icons';
 import { ALL_ICONS } from './constants';
 import { calculateTaskPoints } from './utils/scoringAlgorithm';
@@ -15,7 +15,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 
 const Modal: React.FC<{ show: boolean, onClose: () => void, title: string, children: React.ReactNode }> = ({ show, onClose, title, children }) => {
-    if (!show) return null;
+  if (!show) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
@@ -76,8 +76,8 @@ const App: React.FC = () => {
 
   // Görev güncelleme fonksiyonu
   const handleTaskUpdate = (updatedTask: Task) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
         task.id === updatedTask.id ? updatedTask : task
       )
     );
@@ -97,8 +97,10 @@ const App: React.FC = () => {
       const data = {
         courses,
         tasks,
-
+        exams,
         performanceData,
+
+
         rewards,
         badges,
         successPoints,
@@ -126,9 +128,12 @@ const App: React.FC = () => {
   const handleDeleteAllData = async (): Promise<void> => {
     try {
       setCourses([]);
-      setTasks([]);
 
+      setTasks([]);
+      setExams([]);
       setPerformanceData([]);
+
+
       setRewards([]);
       setBadges([{ id: 'b1', name: 'İlk Adım', description: 'İlk görevini tamamladın!', icon: BadgeCheck }]);
       setSuccessPoints(0);
@@ -147,25 +152,28 @@ const App: React.FC = () => {
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      
+
       // Enhanced validation
       if (!json.courses || !Array.isArray(json.courses) ||
-          !json.tasks || !Array.isArray(json.tasks) ||
+        !json.tasks || !Array.isArray(json.tasks) ||
+        !json.exams || !Array.isArray(json.exams) ||
+        !json.performanceData || !Array.isArray(json.performanceData) ||
 
-          !json.performanceData || !Array.isArray(json.performanceData) ||
-          !json.rewards || !Array.isArray(json.rewards) ||
-          !json.badges || !Array.isArray(json.badges) ||
-          typeof json.successPoints !== 'number') {
+        !json.performanceData || !Array.isArray(json.performanceData) ||
+        !json.rewards || !Array.isArray(json.rewards) ||
+        !json.badges || !Array.isArray(json.badges) ||
+        typeof json.successPoints !== 'number') {
         return false;
       }
 
       setCourses(json.courses);
       setTasks(json.tasks);
+      setExams(json.exams || []);
       setPerformanceData(json.performanceData);
       setRewards(json.rewards);
       setBadges(json.badges);
       setSuccessPoints(json.successPoints);
-      
+
       addToast('Veriler başarıyla içe aktarıldı ve geri yüklendi.', 'success');
       return true;
     } catch (error) {
@@ -210,6 +218,7 @@ const App: React.FC = () => {
   const [userType, setUserType] = useStickyState<UserType>(UserType.Parent, 'userType');
   const [courses, setCourses] = useStickyState<Course[]>([], 'courses');
   const [tasks, setTasks] = useStickyState<Task[]>([], 'tasks');
+  const [exams, setExams] = useStickyState<Exam[]>([], 'exams');
 
   const [performanceData, setPerformanceData] = useStickyState<PerformanceData[]>([], 'performanceData');
   const [rewards, setRewards] = useStickyState<Reward[]>([], 'rewards');
@@ -219,45 +228,124 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
- 
+
   const prevTasksRef = useRef<Task[]>(tasks);
 
 
   const apiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY;
   const ai = apiKey ? new GoogleGenAI({ apiKey }) : new GoogleGenAI({ apiKey: 'dummy-key' });
- 
+
   const addToast = (message: string, type: ToastMessage['type']) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
+      setToasts(prev => prev.filter(toast => toast.id !== id));
     }, 4000);
   };
 
   const handleUnlockParentDashboard = (password: string) => {
     if (password === '1234') {
-        setIsParentLocked(false);
-        setLoginError(null);
+      setIsParentLocked(false);
+      setLoginError(null);
     } else {
-        setLoginError('Hatalı şifre. Lütfen tekrar deneyin.');
+      setLoginError('Hatalı şifre. Lütfen tekrar deneyin.');
     }
   };
 
   const handleUserTypeChange = (newUserType: UserType) => {
-      if (newUserType === UserType.Child) {
-          setIsParentLocked(true); // Re-lock parent dashboard when switching to child view
-          setLoginError(null);
-      } else if (newUserType === UserType.Parent) {
-          setIsParentLocked(true); // Always require password when switching to parent view
-          setLoginError(null);
-      }
-      setUserType(newUserType);
+    if (newUserType === UserType.Child) {
+      setIsParentLocked(true); // Re-lock parent dashboard when switching to child view
+      setLoginError(null);
+    } else if (newUserType === UserType.Parent) {
+      setIsParentLocked(true); // Always require password when switching to parent view
+      setLoginError(null);
+    }
+    setUserType(newUserType);
   };
 
 
   const generateReport = async (period: 'Haftalık' | 'Aylık' | 'Yıllık' | 'Tüm Zamanlar'): Promise<ReportData | null> => {
-  // Rapor fonksiyonu henüz uygulanmadıysa null döndür
-  return null;
+    try {
+      // 1. İlgili görevleri filtrele
+      const now = new Date();
+      const filteredTasks = tasks.filter(t => {
+        if (t.status !== 'tamamlandı' || !t.completionDate) return false;
+        const date = new Date(t.completionDate);
+
+        if (period === 'Haftalık') {
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return date >= oneWeekAgo;
+        } else if (period === 'Aylık') {
+          const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+          return date >= oneMonthAgo;
+        } else if (period === 'Yıllık') {
+          const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          return date >= oneYearAgo;
+        }
+        return true; // Tüm Zamanlar
+      });
+
+      if (filteredTasks.length === 0) {
+        return null;
+      }
+
+      // 2. İstatistikleri hazırla
+      const courseStats: Record<string, { correct: number, total: number, count: number }> = {};
+      filteredTasks.forEach(t => {
+        if (!courseStats[t.courseId]) {
+          courseStats[t.courseId] = { correct: 0, total: 0, count: 0 };
+        }
+        courseStats[t.courseId].count++;
+        if (t.taskType === 'soru çözme') {
+          courseStats[t.courseId].correct += t.correctCount || 0;
+          courseStats[t.courseId].total += (t.correctCount || 0) + (t.incorrectCount || 0);
+        }
+      });
+
+      // 3. AI Prompt'u hazırla
+      const statsSummary = Object.entries(courseStats).map(([courseId, stats]) => {
+        const courseName = courses.find(c => c.id === courseId)?.name || courseId;
+        const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+        return `${courseName}: ${stats.count} görev, %${accuracy} başarı`;
+      }).join('\n');
+
+      const prompt = `
+        Bir öğrenci için ${period.toLowerCase()} performans raporu hazırla.
+        
+        İstatistikler:
+        ${statsSummary}
+        
+        Toplam Tamamlanan Görev: ${filteredTasks.length}
+        
+        Lütfen aşağıdaki JSON formatında yanıt ver:
+        {
+          "period": "${period}",
+          "aiSummary": "Genel performansı özetleyen, motive edici 2-3 cümle.",
+          "highlights": {
+            "mostImproved": "En iyi performans gösterilen ders ve nedeni.",
+            "needsFocus": "Geliştirilmesi gereken ders ve nedeni."
+          },
+          "aiSuggestion": "Öğrenciye özel, somut bir çalışma tavsiyesi."
+        }
+      `;
+
+      // 4. AI'dan yanıt al
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: { responseMimeType: "application/json" }
+      });
+
+      const responseText = result.text;
+      if (!responseText) throw new Error("AI yanıtı boş");
+
+      return JSON.parse(responseText) as ReportData;
+
+    } catch (error) {
+      console.error("Rapor oluşturma hatası:", error);
+      addToast('Rapor oluşturulurken bir hata oluştu.', 'error');
+      return null;
+    }
   };
 
 
@@ -291,13 +379,13 @@ const App: React.FC = () => {
   };
 
   const confirmDeleteCourse = () => {
-  if (!courseToDelete) return;
-  setCourses(prev => prev.filter(c => c.id !== courseToDelete.id));
-  setTasks(prev => prev.filter(t => t.courseId !== courseToDelete.id));
-  setPerformanceData(prev => prev.filter(p => p.courseId !== courseToDelete.id));
-  setCourseToDelete(null);
-  setShowDeleteCourseModal(false);
-  addToast(`'${courseToDelete.name}' dersi ve ilişkili veriler silindi.`, 'success');
+    if (!courseToDelete) return;
+    setCourses(prev => prev.filter(c => c.id !== courseToDelete.id));
+    setTasks(prev => prev.filter(t => t.courseId !== courseToDelete.id));
+    setPerformanceData(prev => prev.filter(p => p.courseId !== courseToDelete.id));
+    setCourseToDelete(null);
+    setShowDeleteCourseModal(false);
+    addToast(`'${courseToDelete.name}' dersi ve ilişkili veriler silindi.`, 'success');
   };
 
   // Task Handlers
@@ -320,105 +408,105 @@ const App: React.FC = () => {
       )
     );
   };
- 
- useEffect(() => {
+
+  useEffect(() => {
     // ... (existing useEffect)
- }, [tasks, courses]);
+  }, [tasks, courses]);
 
 
- const completeTask = (taskId: string, data: TaskCompletionData) => {
+  const completeTask = (taskId: string, data: TaskCompletionData) => {
     setTasks(prevTasks => {
-        const task = prevTasks.find(t => t.id === taskId);
-        if (!task) {
-            console.error("Tamamlanacak görev bulunamadı:", taskId);
-            return prevTasks;
+      const task = prevTasks.find(t => t.id === taskId);
+      if (!task) {
+        console.error("Tamamlanacak görev bulunamadı:", taskId);
+        return prevTasks;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      let correctAnswers = 0;
+      let incorrectAnswers = 0;
+
+      if (task.taskType === 'soru çözme' && data.correctCount !== undefined && data.incorrectCount !== undefined) {
+        correctAnswers = data.correctCount;
+        incorrectAnswers = data.incorrectCount;
+      }
+
+      let successScore: number | undefined = undefined;
+      let focusScore: number | undefined = undefined;
+
+      const plannedSeconds = task.plannedDuration * 60;
+      const { actualDuration, breakTime, pauseTime } = data;
+
+      const totalSessionTime = actualDuration + breakTime + pauseTime;
+      if (totalSessionTime > 0) {
+        let score = 100;
+        const distractionRatio = (breakTime + pauseTime) / totalSessionTime;
+        score -= distractionRatio * 50;
+        if (actualDuration > plannedSeconds) {
+          const overtimeRatio = (actualDuration - plannedSeconds) / plannedSeconds;
+          score -= overtimeRatio * 50;
         }
-     
-        const today = new Date().toISOString().split('T')[0];
-     
-        let correctAnswers = 0;
-        let incorrectAnswers = 0;
+        focusScore = Math.max(0, Math.min(100, score));
+      } else {
+        focusScore = 100;
+      }
 
-        if (task.taskType === 'soru çözme' && data.correctCount !== undefined && data.incorrectCount !== undefined) {
-          correctAnswers = data.correctCount;
-          incorrectAnswers = data.incorrectCount;
-        }
-
-        let successScore: number | undefined = undefined;
-        let focusScore: number | undefined = undefined;
-       
-        const plannedSeconds = task.plannedDuration * 60;
-        const { actualDuration, breakTime, pauseTime } = data;
-
-        const totalSessionTime = actualDuration + breakTime + pauseTime;
-        if (totalSessionTime > 0) {
-            let score = 100;
-            const distractionRatio = (breakTime + pauseTime) / totalSessionTime;
-            score -= distractionRatio * 50;
-            if (actualDuration > plannedSeconds) {
-                const overtimeRatio = (actualDuration - plannedSeconds) / plannedSeconds;
-                score -= overtimeRatio * 50;
-            }
-            focusScore = Math.max(0, Math.min(100, score));
+      if (task.taskType === 'soru çözme' && task.questionCount && task.questionCount > 0) {
+        const baseAccuracy = (correctAnswers / task.questionCount) * 100;
+        const timeRatio = actualDuration / plannedSeconds;
+        let timeModifier = 1.0;
+        if (timeRatio < 1.0) {
+          timeModifier = 1 + ((1 - timeRatio) * 0.1);
         } else {
-          focusScore = 100;
+          timeModifier = 1 - ((timeRatio - 1) * 0.2);
         }
+        successScore = Math.max(0, Math.min(100, baseAccuracy * timeModifier));
+      } else {
+        successScore = focusScore;
+      }
 
-        if (task.taskType === 'soru çözme' && task.questionCount && task.questionCount > 0) {
-            const baseAccuracy = (correctAnswers / task.questionCount) * 100;
-            const timeRatio = actualDuration / plannedSeconds;
-            let timeModifier = 1.0;
-            if (timeRatio < 1.0) {
-                timeModifier = 1 + ((1 - timeRatio) * 0.1);
-            } else {
-                timeModifier = 1 - ((timeRatio - 1) * 0.2);
+      // Use balanced scoring algorithm
+      const scoringResult = calculateTaskPoints(task, data, successScore, focusScore);
+      const pointsAwarded = scoringResult.pointsAwarded;
+
+      setSuccessPoints(prev => prev + pointsAwarded);
+
+      if (task.taskType !== 'kitap okuma') {
+        setPerformanceData(prevData => {
+          return prevData.map(p => {
+            if (p.courseId === task.courseId) {
+              const newTimeSpent = Math.round(data.actualDuration / 60);
+              return {
+                ...p,
+                correct: p.correct + correctAnswers,
+                incorrect: p.incorrect + incorrectAnswers,
+                timeSpent: p.timeSpent + newTimeSpent
+              };
             }
-            successScore = Math.max(0, Math.min(100, baseAccuracy * timeModifier));
-        } else {
-          successScore = focusScore;
-        }
-
-        // Use balanced scoring algorithm
-        const scoringResult = calculateTaskPoints(task, data, successScore, focusScore);
-        const pointsAwarded = scoringResult.pointsAwarded;
-       
-        setSuccessPoints(prev => prev + pointsAwarded);
-
-        if (task.taskType !== 'kitap okuma') {
-            setPerformanceData(prevData => {
-                return prevData.map(p => {
-                    if (p.courseId === task.courseId) {
-                        const newTimeSpent = Math.round(data.actualDuration / 60);
-                        return {
-                            ...p,
-                            correct: p.correct + correctAnswers,
-                            incorrect: p.incorrect + incorrectAnswers,
-                            timeSpent: p.timeSpent + newTimeSpent
-                        };
-                    }
-                    return p;
-                });
-            });
-        }
-
-        return prevTasks.map(t => {
-            if (t.id !== taskId) return t;
-            return {
-                ...t,
-                status: 'tamamlandı',
-                ...data,
-                pagesRead: data.pagesRead,
-                completionDate: today,
-                completionTimestamp: Date.now(),
-                correctCount: correctAnswers,
-                incorrectCount: incorrectAnswers,
-                successScore: successScore ? Math.round(successScore) : undefined,
-                focusScore: focusScore ? Math.round(focusScore) : undefined,
-                pointsAwarded
-            };
+            return p;
+          });
         });
+      }
+
+      return prevTasks.map(t => {
+        if (t.id !== taskId) return t;
+        return {
+          ...t,
+          status: 'tamamlandı',
+          ...data,
+          pagesRead: data.pagesRead,
+          completionDate: today,
+          completionTimestamp: Date.now(),
+          correctCount: correctAnswers,
+          incorrectCount: incorrectAnswers,
+          successScore: successScore ? Math.round(successScore) : undefined,
+          focusScore: focusScore ? Math.round(focusScore) : undefined,
+          pointsAwarded
+        };
+      });
     });
- };
+  };
 
   const updateTaskStatus = (taskId: string, status: 'bekliyor' | 'tamamlandı') => {
     setTasks(prevTasks => prevTasks.map(t => (t.id === taskId ? { ...t, status } : t)));
@@ -426,7 +514,7 @@ const App: React.FC = () => {
 
   // Reward Handlers
   const addReward = (reward: Omit<Reward, 'id'>) => {
-    const newReward: Reward = { ...reward, id: `reward_${Date.now()}`};
+    const newReward: Reward = { ...reward, id: `reward_${Date.now()}` };
     setRewards(prev => [newReward, ...prev]);
   };
 
@@ -434,127 +522,143 @@ const App: React.FC = () => {
     setRewards(prev => prev.filter(r => r.id !== rewardId));
   }
 
+  // Exam Handlers
+  const addExam = (exam: Omit<Exam, 'id'>) => {
+    const newExam: Exam = { ...exam, id: `exam_${Date.now()}` };
+    setExams(prev => [newExam, ...prev]);
+    addToast('Sınav sonucu başarıyla eklendi.', 'success');
+  };
+
+  const deleteExam = (examId: string) => {
+    setExams(prev => prev.filter(e => e.id !== examId));
+    addToast('Sınav sonucu silindi.', 'success');
+  };
+
   const claimReward = (rewardId: string) => {
-      const reward = rewards.find(r => r.id === rewardId);
-      if (reward && successPoints >= reward.cost) {
-          setSuccessPoints(prev => prev - reward.cost);
-          addToast(`'${reward.name}' ödül talebiniz iletildi!`, 'success');
-      } else {
-          addToast('Bu ödülü almak için yeterli puanınız yok!', 'error');
-      }
+    const reward = rewards.find(r => r.id === rewardId);
+    if (reward && successPoints >= reward.cost) {
+      setSuccessPoints(prev => prev - reward.cost);
+      addToast(`'${reward.name}' ödül talebiniz iletildi!`, 'success');
+    } else {
+      addToast('Bu ödülü almak için yeterli puanınız yok!', 'error');
+    }
   };
 
 
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-slate-100 text-slate-800 font-sans">
-          {/* Otomatik bildirimler */}
-          <FloatingNotification tasks={tasks} onContinueTask={handleContinueTask} />
-      {/* Toasts ve modallar burada */}
-      <header className="w-full bg-white shadow-sm py-4 px-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <GraduationCap className="h-8 w-8 text-primary-600" />
-          <h1 className="text-2xl font-bold text-slate-800">Eğitim Asistanı</h1>
-        </div>
-        <div className="flex items-center space-x-4">
-          <RealtimeNotificationCenter 
-            tasks={tasks} 
-            onTaskClick={handleContinueTask}
-          />
-          <span className="text-sm font-medium text-slate-500">Görünüm:</span>
-          <div className="relative inline-flex bg-slate-200 rounded-full p-1">
-            <button
-              onClick={() => handleUserTypeChange(UserType.Parent)}
-              className={`relative z-10 flex items-center justify-center w-28 h-8 rounded-full text-sm font-semibold transition-colors duration-300 ${userType === UserType.Parent ? 'bg-primary-600 text-white' : 'text-slate-600'}`}
-            >
-              <Users className="w-4 h-4 mr-2" /> Ebeveyn
-            </button>
-            <button
-              onClick={() => handleUserTypeChange(UserType.Child)}
-              className={`relative z-10 flex items-center justify-center w-28 h-8 rounded-full text-sm font-semibold transition-colors duration-300 ${userType === UserType.Child ? 'bg-primary-600 text-white' : 'text-slate-600'}`}
-            >
-              <User className="w-4 h-4 mr-2" /> Çocuk
-            </button>
-            <span
-              className={`absolute top-1 left-1 w-28 h-8 bg-primary-600 rounded-full shadow-md transform transition-transform duration-300 ease-in-out ${userType === UserType.Child ? 'translate-x-full' : 'translate-x-0'}`}
-            />
+        {/* Otomatik bildirimler */}
+        <FloatingNotification tasks={tasks} onContinueTask={handleContinueTask} />
+        {/* Toasts ve modallar burada */}
+        <header className="w-full bg-white shadow-sm py-4 px-4 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <GraduationCap className="h-8 w-8 text-primary-600" />
+            <h1 className="text-2xl font-bold text-slate-800">Eğitim Asistanı</h1>
           </div>
-        </div>
-      </header>
-      <main>
-        {userType === UserType.Parent ? (
-          isParentLocked ? (
-            <ParentLockScreen onUnlock={handleUnlockParentDashboard} error={loginError} />
-          ) : (
-            <>
-              <ParentDashboard 
-                courses={courses}
-                tasks={tasks}
-
-                performanceData={performanceData}
-                rewards={rewards}
-                ai={ai}
-                addCourse={addCourse}
-                deleteCourse={handleDeleteCourseRequest}
-                addTask={addTask}
-
-                deleteTask={deleteTask}
-                addReward={addReward}
-                deleteReward={deleteReward}
-                generateReport={generateReport}
-                onExportData={handleExportData}
-                onDeleteAllData={handleDeleteAllData}
-                onImportData={handleImportDataNew}
-                onShowTaskDetail={handleShowTaskDetail}
-                loading={false}
-                error={null}
+          <div className="flex items-center space-x-4">
+            <RealtimeNotificationCenter
+              tasks={tasks}
+              onTaskClick={handleContinueTask}
+            />
+            <span className="text-sm font-medium text-slate-500">Görünüm:</span>
+            <div className="relative inline-flex bg-slate-200 rounded-full p-1">
+              <button
+                onClick={() => handleUserTypeChange(UserType.Parent)}
+                className={`relative z-10 flex items-center justify-center w-28 h-8 rounded-full text-sm font-semibold transition-colors duration-300 ${userType === UserType.Parent ? 'bg-primary-600 text-white' : 'text-slate-600'}`}
+              >
+                <Users className="w-4 h-4 mr-2" /> Ebeveyn
+              </button>
+              <button
+                onClick={() => handleUserTypeChange(UserType.Child)}
+                className={`relative z-10 flex items-center justify-center w-28 h-8 rounded-full text-sm font-semibold transition-colors duration-300 ${userType === UserType.Child ? 'bg-primary-600 text-white' : 'text-slate-600'}`}
+              >
+                <User className="w-4 h-4 mr-2" /> Çocuk
+              </button>
+              <span
+                className={`absolute top-1 left-1 w-28 h-8 bg-primary-600 rounded-full shadow-md transform transition-transform duration-300 ease-in-out ${userType === UserType.Child ? 'translate-x-full' : 'translate-x-0'}`}
               />
-              {/* Ders silme onay modalı */}
-              <Modal show={showDeleteCourseModal} onClose={() => setShowDeleteCourseModal(false)} title="Dersi Sil">
-                <div className="space-y-4">
-                  <p className="text-slate-700">'{courseToDelete?.name}' dersini ve ilişkili tüm görevleri, analizleri silmek istediğinize emin misiniz?</p>
-                  <div className="flex justify-end space-x-3">
-                    <button className="bg-slate-200 px-4 py-2 rounded-lg" onClick={() => setShowDeleteCourseModal(false)}>Vazgeç</button>
-                    <button className="bg-red-600 text-white px-4 py-2 rounded-lg" onClick={confirmDeleteCourse}>Evet, Sil</button>
+            </div>
+          </div>
+        </header>
+        <main>
+          {userType === UserType.Parent ? (
+            isParentLocked ? (
+              <ParentLockScreen onUnlock={handleUnlockParentDashboard} error={loginError} />
+            ) : (
+              <>
+                <ParentDashboard
+                  courses={courses}
+                  tasks={tasks}
+                  exams={exams}
+                  performanceData={performanceData}
+
+
+                  rewards={rewards}
+                  ai={ai}
+                  addCourse={addCourse}
+                  deleteCourse={handleDeleteCourseRequest}
+                  addTask={addTask}
+
+                  deleteTask={deleteTask}
+                  addExam={addExam}
+                  deleteExam={deleteExam}
+                  addReward={addReward}
+                  deleteReward={deleteReward}
+                  generateReport={generateReport}
+                  onExportData={handleExportData}
+                  onDeleteAllData={handleDeleteAllData}
+                  onImportData={handleImportDataNew}
+                  onShowTaskDetail={handleShowTaskDetail}
+                  loading={false}
+                  error={null}
+                />
+                {/* Ders silme onay modalı */}
+                <Modal show={showDeleteCourseModal} onClose={() => setShowDeleteCourseModal(false)} title="Dersi Sil">
+                  <div className="space-y-4">
+                    <p className="text-slate-700">'{courseToDelete?.name}' dersini ve ilişkili tüm görevleri, analizleri silmek istediğinize emin misiniz?</p>
+                    <div className="flex justify-end space-x-3">
+                      <button className="bg-slate-200 px-4 py-2 rounded-lg" onClick={() => setShowDeleteCourseModal(false)}>Vazgeç</button>
+                      <button className="bg-red-600 text-white px-4 py-2 rounded-lg" onClick={confirmDeleteCourse}>Evet, Sil</button>
+                    </div>
                   </div>
-                </div>
-              </Modal>
-              
-              {/* Task Detail Modal */}
-              <TaskDetailModal
-                show={showTaskDetailModal}
-                onClose={() => setShowTaskDetailModal(false)}
-                task={selectedTask}
-                courses={courses}
-                canEdit={userType === UserType.Parent}
-                onTaskUpdate={handleTaskUpdate}
-              />
-              
-              {/* ... (import modal) ... */}
-            </>
-          )
-        ) : (
-          <ChildDashboard 
-            tasks={tasks}
-            courses={courses}
+                </Modal>
 
-            performanceData={performanceData}
-            rewards={rewards}
-            badges={badges}
-            successPoints={successPoints}
-            startTask={startTask}
+                {/* Task Detail Modal */}
+                <TaskDetailModal
+                  show={showTaskDetailModal}
+                  onClose={() => setShowTaskDetailModal(false)}
+                  task={selectedTask}
+                  courses={courses}
+                  canEdit={userType === UserType.Parent}
+                  onTaskUpdate={handleTaskUpdate}
+                />
 
-            updateTaskStatus={updateTaskStatus}
-            completeTask={completeTask}
+                {/* ... (import modal) ... */}
+              </>
+            )
+          ) : (
+            <ChildDashboard
+              tasks={tasks}
+              courses={courses}
 
-            claimReward={claimReward}
-            addTask={addTask}
-            ai={ai}
-            onShowTaskDetail={handleShowTaskDetail}
-          />
-        )}
-      </main>
-    </div>
+              performanceData={performanceData}
+              rewards={rewards}
+              badges={badges}
+              successPoints={successPoints}
+              startTask={startTask}
+
+              updateTaskStatus={updateTaskStatus}
+              completeTask={completeTask}
+
+              claimReward={claimReward}
+              addTask={addTask}
+              ai={ai}
+              onShowTaskDetail={handleShowTaskDetail}
+            />
+          )}
+        </main>
+      </div>
     </ErrorBoundary>
   );
 };
